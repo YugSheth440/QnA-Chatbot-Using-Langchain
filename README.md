@@ -1,136 +1,76 @@
-# 📄 QnA Chatbot Using LangChain
+# QnA Chatbot Using LangChain
 
-A production-ready **Retrieval-Augmented Generation (RAG)** chatbot that lets you upload multiple PDFs and have intelligent, context-aware conversations about their content. Built with LangChain, ChromaDB, and powered by **LLaMA-3.3-70B** via Groq API.
+Upload your PDFs, ask questions, get answers with source citations. Built on a RAG (Retrieval-Augmented Generation) pipeline using LangChain, ChromaDB, and LLaMA-3.3-70B via Groq.
 
-![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![LangChain](https://img.shields.io/badge/LangChain-0.3-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white)
-![Streamlit](https://img.shields.io/badge/Streamlit-1.31+-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)
-![Groq](https://img.shields.io/badge/Groq-LLaMA_3.3--70B-F55036?style=for-the-badge)
+![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=flat-square&logo=python&logoColor=white)
+![LangChain](https://img.shields.io/badge/LangChain-0.3-1C3C3C?style=flat-square)
+![Streamlit](https://img.shields.io/badge/Streamlit-1.31+-FF4B4B?style=flat-square&logo=streamlit&logoColor=white)
 
----
+## What it does
 
-## ✨ Features
+- **Multi-PDF support** — upload several documents and query across all of them at once
+- **Conversation memory** — follow-up questions work naturally; the retriever reformulates queries using chat history
+- **Source citations** — every response shows which file and page the answer came from
+- **Deduplication** — re-uploading the same file won't reprocess it (SHA-256 hash check)
+- **Fast inference** — Groq serves LLaMA-3.3-70B with very low latency
 
-| Feature | Description |
-|---------|-------------|
-| 📄 **Multi-PDF Upload** | Upload and query across multiple PDF documents simultaneously |
-| 🧠 **History-Aware Retrieval** | Contextual follow-up questions using conversation memory |
-| 🔍 **Semantic Search** | ChromaDB vector store with HuggingFace embeddings for precise chunk retrieval |
-| ⚡ **Fast Inference** | LLaMA-3.3-70B served through Groq's ultra-low-latency API |
-| 📚 **Source Citations** | Every answer includes expandable source references with page numbers |
-| 🔄 **Deduplication** | SHA-256 hashing prevents reprocessing of identical files |
-| 🎨 **Polished UI** | Custom-styled Streamlit interface with gradient accents and metrics dashboard |
-
----
-
-## 🏗️ Architecture
+## How it works
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    Streamlit Frontend                    │
-│          (Chat UI · File Upload · Session Stats)        │
-└──────────────────────┬──────────────────────────────────┘
-                       │
-          ┌────────────▼────────────┐
-          │    LangChain Pipeline   │
-          │                         │
-          │  ┌───────────────────┐  │
-          │  │ History-Aware     │  │
-          │  │ Retriever         │  │  ← Reformulates queries using
-          │  │ (Contextualizer)  │  │    conversation history
-          │  └────────┬──────────┘  │
-          │           │             │
-          │  ┌────────▼──────────┐  │
-          │  │ ChromaDB          │  │  ← Semantic search over
-          │  │ Vector Store      │  │    document chunks
-          │  │ (HuggingFace     │  │
-          │  │  Embeddings)      │  │
-          │  └────────┬──────────┘  │
-          │           │             │
-          │  ┌────────▼──────────┐  │
-          │  │ QA Chain          │  │  ← Generates answer from
-          │  │ (Stuff Documents) │  │    retrieved context
-          │  └──────────────────┘  │
-          └────────────┬───────────┘
-                       │
-            ┌──────────▼──────────┐
-            │   Groq API          │
-            │   LLaMA-3.3-70B    │
-            └─────────────────────┘
+PDF Upload → PyPDF parsing → Recursive text splitting (1000 char chunks)
+    → HuggingFace embeddings (all-MiniLM-L6-v2) → ChromaDB vector store
+        → History-aware retriever → Stuff documents QA chain → LLaMA-3.3-70B → Answer + Sources
 ```
 
----
+The chain uses LangChain's `create_history_aware_retriever` to reformulate user questions based on prior conversation, then retrieves the top-5 most relevant chunks from ChromaDB and feeds them into the LLM for answer generation.
 
-## 🚀 Quick Start
+## Setup
 
-### Prerequisites
-
-- Python 3.9+
-- A free [Groq API key](https://console.groq.com)
-
-### Installation
+You'll need Python 3.9+ and a [Groq API key](https://console.groq.com) (free tier available).
 
 ```bash
-# 1. Clone the repository
 git clone https://github.com/YugSheth440/QnA-Chatbot-Using-Langchain.git
 cd QnA-Chatbot-Using-Langchain
 
-# 2. Create a virtual environment
 python -m venv venv
-source venv/bin/activate        # Linux/Mac
-# venv\Scripts\activate         # Windows
+source venv/bin/activate   # on Windows: venv\Scripts\activate
 
-# 3. Install dependencies
 pip install -r requirements.txt
 
-# 4. Set up environment variables
 cp .env.example .env
-# Edit .env and add your Groq API key
+# add your GROQ_API_KEY to .env
 
-# 5. Run the app
 streamlit run app.py
 ```
 
-The app will open at `http://localhost:8501`.
+Opens at `http://localhost:8501`. You can also paste your API key directly in the sidebar instead of using `.env`.
 
----
+## Configuration
 
-## 🔧 Configuration
+These can be adjusted from the sidebar at runtime:
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `GROQ_API_KEY` | — | Your Groq API key (required) |
-| Temperature | 0.7 | Controls response creativity (0.0–1.0) |
-| Chunk Size | 1000 | Characters per document chunk |
-| Chunk Overlap | 200 | Overlap between consecutive chunks |
-| Top-K Results | 5 | Number of chunks retrieved per query |
+- **Temperature** (default 0.7) — lower = more factual, higher = more creative
+- **Chunk size / overlap** — currently 1000 chars with 200 char overlap, hardcoded in `app.py`
+- **Top-K retrieval** — 5 chunks per query, also in `app.py`
 
----
-
-## 📂 Project Structure
+## Project structure
 
 ```
-QnA-Chatbot-Using-Langchain/
-├── app.py              # Main Streamlit application
-├── requirements.txt    # Python dependencies
-├── .env.example        # Environment variable template
-├── .gitignore          # Git ignore rules
-└── README.md           # This file
+├── app.py              # everything lives here — UI, RAG pipeline, session management
+├── requirements.txt
+├── .env.example
+└── .gitignore
 ```
 
----
+## Tech stack
 
-## 🛠️ Tech Stack
-
-- **LLM**: LLaMA-3.3-70B (via [Groq](https://groq.com))
-- **Framework**: [LangChain](https://langchain.com) v0.3
-- **Vector Store**: [ChromaDB](https://www.trychroma.com)
+- **LLM**: LLaMA-3.3-70B via [Groq](https://groq.com)
+- **Orchestration**: [LangChain](https://langchain.com) v0.3
+- **Vector store**: [ChromaDB](https://www.trychroma.com)
 - **Embeddings**: HuggingFace `all-MiniLM-L6-v2`
 - **Frontend**: [Streamlit](https://streamlit.io)
-- **PDF Parsing**: PyPDF
+- **PDF parsing**: PyPDF
 
----
+## License
 
-## 📜 License
-
-This project is open-source and available under the [MIT License](LICENSE).
+MIT
